@@ -1237,7 +1237,7 @@ footer{border-top:1px solid rgba(201,168,76,.12);padding:44px 0 20px;text-align:
 <!-- ══════ FIREBASE ══════ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, addDoc, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const cfg = {
@@ -1929,7 +1929,37 @@ window.resendVerification = async function(email, pass) {
   }
 };
 
-// ── نسيان كلمة المرور ──
+// ── تسجيل الدخول بـ Google ──
+window.doGoogleLogin = async function() {
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const cred = await signInWithPopup(auth, provider);
+    const user = cred.user;
+    // تحقق إذا كان المستخدم موجوداً في Firestore
+    const snap = await getDoc(doc(db,'users',user.uid));
+    if (!snap.exists()) {
+      // مستخدم جديد — أنشئ ملفه
+      await setDoc(doc(db,'users',user.uid), {
+        name: user.displayName || 'عضو',
+        email: user.email,
+        photoUrl: user.photoURL || '',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        views: 0, interests: 0, sent: 0
+      });
+      cm();
+      toast('مرحباً بك في نكاح! 🎉 أكمل ملفك.','ok');
+    } else {
+      cm();
+      toast('مرحباً بعودتك 🌙','ok');
+    }
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user') {
+      toast('حدث خطأ في تسجيل الدخول بـ Google','err');
+    }
+  }
+};
 window.forgotPassword = async function(email) {
   if (!email) { toast('أدخل بريدك الإلكتروني أولاً','err'); return; }
   try {
@@ -2396,6 +2426,15 @@ const modals={
     <h2 class="modal-title">مرحباً بعودتك</h2>
     <p class="modal-sub">سجّل دخولك لاستكمال رحلة البحث</p>
     <div style="display:flex;flex-direction:column;gap:12px;">
+      <button onclick="doGoogleLogin()" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid rgba(201,168,76,.3);border-radius:10px;background:rgba(255,255,255,.04);color:var(--text);font-family:Tajawal,sans-serif;font-size:14px;cursor:pointer;transition:all .3s;" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background='rgba(255,255,255,.04)'">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 32.8 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.2 0-9.7-3.2-11.3-7.8l-6.6 5.1C9.6 39.5 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.4-2.5 4.4-4.7 5.8l6.2 5.2C40.8 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
+        متابعة بـ Google
+      </button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;height:1px;background:rgba(201,168,76,.15);"></div>
+        <span style="font-size:11px;color:var(--muted);">أو</span>
+        <div style="flex:1;height:1px;background:rgba(201,168,76,.15);"></div>
+      </div>
       <input class="finput" type="email" placeholder="البريد الإلكتروني" id="ml-email">
       <input class="finput" type="password" placeholder="كلمة المرور" id="ml-pass">
       <button class="btn-gold" style="padding:13px;font-size:15px;font-family:Tajawal,sans-serif;border-radius:10px;" onclick="doLogin(document.getElementById('ml-email').value,document.getElementById('ml-pass').value)">دخول 🌙</button>
@@ -2407,6 +2446,15 @@ const modals={
     <h2 class="modal-title">انضم إلى نكاح</h2>
     <p class="modal-sub">أنشئ ملفك وابدأ رحلتك نحو الزواج الحلال</p>
     <div style="display:flex;flex-direction:column;gap:12px;">
+      <button onclick="doGoogleLogin()" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid rgba(201,168,76,.3);border-radius:10px;background:rgba(255,255,255,.04);color:var(--text);font-family:Tajawal,sans-serif;font-size:14px;cursor:pointer;transition:all .3s;" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background='rgba(255,255,255,.04)'">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 32.8 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.2 0-9.7-3.2-11.3-7.8l-6.6 5.1C9.6 39.5 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.4-2.5 4.4-4.7 5.8l6.2 5.2C40.8 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
+        التسجيل بـ Google
+      </button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;height:1px;background:rgba(201,168,76,.15);"></div>
+        <span style="font-size:11px;color:var(--muted);">أو بالبريد الإلكتروني</span>
+        <div style="flex:1;height:1px;background:rgba(201,168,76,.15);"></div>
+      </div>
       <input class="finput" type="text" placeholder="اسمك الكريم" id="mr-name">
       <input class="finput" type="email" placeholder="بريدك الإلكتروني" id="mr-email">
       <input class="finput" type="password" placeholder="كلمة المرور (6 أحرف+)" id="mr-pass">
