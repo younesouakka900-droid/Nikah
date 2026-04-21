@@ -81,106 +81,274 @@ nav{position:fixed;top:0;width:100%;z-index:100;background:rgba(13,27,42,.97);ba
 /* profiles grid */
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:28px 20px;padding-bottom:16px;}
 
-/* ─ ID CARD style profile card ─ */
-.pcard{
-  background:linear-gradient(160deg,#1a3a5c 0%,#0f2340 60%,#0a1a2e 100%);
-  border:1.5px solid rgba(201,168,76,.35);
-  border-radius:16px;
-  overflow:hidden;
-  transition:all .4s;
-  position:relative;
-  box-shadow:0 8px 32px rgba(0,0,0,.45);
-}
-.pcard:hover{transform:translateY(-5px);border-color:rgba(201,168,76,.7);box-shadow:0 20px 50px rgba(0,0,0,.55);}
+/* ══════════════════════════════════════
+   PREMIUM PROFILE CARD — v2
+══════════════════════════════════════ */
 
-/* gold stripe at top */
-.pcard::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:6px;
-  background:linear-gradient(90deg,var(--gold-dark),var(--gold-light),var(--gold-dark));
-  z-index:3;
+/* ── outer shell ── */
+.pcard {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .45s cubic-bezier(.22,1,.36,1), box-shadow .45s ease;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5), 0 0 0 1px rgba(201,168,76,.18);
+  background: #080f1a;
 }
-/* watermark pattern */
-.pcard::after{
-  content:'';position:absolute;inset:0;pointer-events:none;
-  background:url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='8' fill='none' stroke='%23C9A84C' stroke-opacity='0.04' stroke-width='1'/%3E%3C/svg%3E");
-  z-index:0;
+.pcard:hover {
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 0 24px 60px rgba(0,0,0,.7), 0 0 0 1.5px rgba(201,168,76,.55), 0 0 40px rgba(201,168,76,.08);
 }
 
-/* header bar */
-.pcard-top{
-  background:linear-gradient(135deg,rgba(201,168,76,.18) 0%,rgba(201,168,76,.05) 100%);
-  border-bottom:1px solid rgba(201,168,76,.25);
-  padding:14px 16px 10px;
-  display:flex;align-items:center;justify-content:space-between;
-  position:relative;z-index:1;
+/* ── animated shimmer border ── */
+.pcard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  padding: 1.5px;
+  background: linear-gradient(135deg, rgba(201,168,76,.7), rgba(201,168,76,.1) 40%, rgba(201,168,76,.6) 70%, rgba(201,168,76,.1));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity .4s;
 }
-.pcard-top-logo{font-family:'Amiri',serif;font-size:13px;color:var(--gold-light);letter-spacing:1px;font-weight:700;}
-.pcard-top-title{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.pcard:hover::before { opacity: 1; }
 
-/* main body: photo left + info right (RTL = photo right) */
-.pcard-body{
-  display:flex;flex-direction:row;gap:0;padding:0;
-  position:relative;z-index:1;
+/* ── hero image area ── */
+.pcard-hero {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0d1f35 0%, #0a1525 100%);
+}
+.pcard-hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(201,168,76,.12) 0%, transparent 70%),
+    url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23C9A84C' stroke-opacity='0.045' stroke-width='1'%3E%3Cpath d='M40 10 L70 25 L70 55 L40 70 L10 55 L10 25 Z'/%3E%3Cpath d='M40 22 L58 32 L58 52 L40 62 L22 52 L22 32 Z'/%3E%3Ccircle cx='40' cy='40' r='6'/%3E%3C/g%3E%3C/svg%3E");
+}
+/* large avatar centered */
+.pcard-avatar-wrap {
+  position: absolute;
+  bottom: -30px;
+  right: 50%;
+  transform: translateX(50%);
+  z-index: 3;
+}
+.pcard-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid #080f1a;
+  outline: 2px solid rgba(201,168,76,.5);
+  background: linear-gradient(135deg, #0d1f35, #1a3a5c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,.6), 0 0 20px rgba(201,168,76,.15);
+  transition: outline-color .3s;
+}
+.pcard:hover .pcard-avatar { outline-color: rgba(201,168,76,.9); }
+.pcard-avatar img { width:100%; height:100%; object-fit:cover; }
+
+/* gender arc badge */
+.pcard-gender-arc {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  backdrop-filter: blur(8px);
+  z-index: 4;
+}
+.pcard-gender-arc.male   { background: rgba(74,143,168,.25); border: 1px solid rgba(74,143,168,.5); }
+.pcard-gender-arc.female { background: rgba(201,168,76,.2);  border: 1px solid rgba(201,168,76,.45); }
+
+/* status dot */
+.pcard-online-dot {
+  position: absolute;
+  bottom: -30px;
+  right: calc(50% - 46px);
+  transform: translateX(50%);
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: 2px solid #080f1a;
+  z-index: 5;
+}
+.pcard-online-dot.online { background: #5B9E6C; box-shadow: 0 0 6px #5B9E6C; }
+.pcard-online-dot.away   { background: #C9A84C; }
+.pcard-online-dot.offline{ background: #444; }
+
+/* ── body ── */
+.pcard-body {
+  padding: 42px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  position: relative;
+  z-index: 1;
 }
 
-/* photo column */
-.pcard-photo-col{
-  flex:0 0 110px;
-  padding:16px 0 16px 16px;
-  display:flex;flex-direction:column;align-items:center;gap:8px;
+/* name */
+.pcard-name {
+  font-family: 'Amiri', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #F0E8D5;
+  text-align: center;
+  margin-bottom: 6px;
+  letter-spacing: .3px;
 }
-.pcard-avatar{
-  width:90px;height:110px;
-  background:linear-gradient(135deg,#0a1e35,#1a3a5c);
-  border:2px solid rgba(201,168,76,.5);
-  border-radius:8px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:42px;
-  overflow:hidden;
-  box-shadow:0 4px 16px rgba(0,0,0,.5);
-  flex-shrink:0;
-}
-.pcard-avatar img{width:100%;height:100%;object-fit:cover;}
-.pcard-uid{font-size:9px;color:var(--muted);letter-spacing:1px;font-family:monospace;}
 
-/* info column */
-.pcard-info-col{
-  flex:1;
-  padding:14px 16px 14px 8px;
-  display:flex;flex-direction:column;gap:6px;
-  border-right:1px solid rgba(201,168,76,.15);
+/* badges row */
+.pcard-badges {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 14px;
 }
-.pcard-field{display:flex;flex-direction:column;gap:1px;}
-.pcard-field-label{font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;font-weight:700;}
-.pcard-field-val{font-size:13px;color:var(--text);font-weight:600;}
-.pcard-field-val.large{font-size:16px;font-family:'Amiri',serif;}
-.pcard-divider{height:1px;background:rgba(201,168,76,.12);margin:2px 0;}
-
-/* badges inline */
-.pcard-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px;}
-.badge-verified{background:rgba(91,158,108,.2);border:1px solid var(--green);color:var(--green);border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;}
-.badge-status{border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;}
-.badge-azab{background:rgba(74,143,168,.15);border:1px solid var(--blue);color:var(--blue);}
-.badge-motalaq{background:rgba(201,168,76,.15);border:1px solid var(--gold);color:var(--gold);}
-.badge-armil{background:rgba(91,158,108,.15);border:1px solid var(--green);color:var(--green);}
-
-/* footer strip */
-.pcard-footer{
-  border-top:1px solid rgba(201,168,76,.2);
-  padding:10px 16px;
-  display:flex;gap:8px;align-items:center;
-  position:relative;z-index:1;
-  background:rgba(0,0,0,.15);
+.badge-verified {
+  display: flex; align-items: center; gap: 3px;
+  background: rgba(91,158,108,.15);
+  border: 1px solid rgba(91,158,108,.4);
+  color: #7ECE8F;
+  border-radius: 50px;
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 700;
 }
-.pcard-barcode{
-  flex:1;height:22px;
-  background:repeating-linear-gradient(90deg,rgba(201,168,76,.6) 0px,rgba(201,168,76,.6) 2px,transparent 2px,transparent 5px,rgba(201,168,76,.3) 5px,rgba(201,168,76,.3) 6px,transparent 6px,transparent 9px);
-  border-radius:2px;opacity:.5;
+.badge-status {
+  border-radius: 50px;
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 700;
 }
-.pcard-views{font-size:10px;color:var(--muted);}
+.badge-azab    { background:rgba(74,143,168,.12); border:1px solid rgba(74,143,168,.35); color:#6ABADB; }
+.badge-motalaq { background:rgba(201,168,76,.1);  border:1px solid rgba(201,168,76,.35); color:#E8CC80; }
+.badge-armil   { background:rgba(91,158,108,.12); border:1px solid rgba(91,158,108,.35); color:#7ECE8F; }
+.badge-serious {
+  background: rgba(201,168,76,.12);
+  border: 1px solid rgba(201,168,76,.35);
+  color: var(--gold);
+  border-radius: 50px;
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 700;
+}
 
-.ptags{display:flex;flex-wrap:wrap;gap:4px;}
-.ptag{padding:2px 8px;border-radius:3px;background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.18);font-size:10px;color:var(--muted);}
+/* info grid */
+.pcard-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  gap: 0;
+  width: 100%;
+  background: rgba(201,168,76,.05);
+  border: 1px solid rgba(201,168,76,.1);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.pcard-info-sep {
+  background: rgba(201,168,76,.1);
+  align-self: stretch;
+}
+.pcard-info-item {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pcard-info-item:first-child { border-left: none; }
+.pcard-info-label {
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+  opacity: .8;
+}
+.pcard-info-val {
+  font-size: 13px;
+  color: #F0E8D5;
+  font-weight: 600;
+}
+
+/* tags */
+.ptags { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; margin-bottom:14px; }
+.ptag {
+  padding: 3px 9px;
+  border-radius: 50px;
+  background: rgba(201,168,76,.06);
+  border: 1px solid rgba(201,168,76,.15);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* uid strip */
+.pcard-uid {
+  font-size: 9px;
+  color: rgba(168,152,120,.35);
+  letter-spacing: 2px;
+  font-family: monospace;
+  margin-bottom: 12px;
+}
+
+/* ── footer ── */
+.pcard-footer {
+  border-top: 1px solid rgba(201,168,76,.1);
+  padding: 12px 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(0,0,0,.2);
+  position: relative;
+  z-index: 1;
+}
+.pcard-barcode {
+  flex: 1;
+  height: 18px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(201,168,76,.5) 0px, rgba(201,168,76,.5) 1.5px,
+    transparent 1.5px, transparent 4px,
+    rgba(201,168,76,.25) 4px, rgba(201,168,76,.25) 5px,
+    transparent 5px, transparent 8px,
+    rgba(201,168,76,.4) 8px, rgba(201,168,76,.4) 9px,
+    transparent 9px, transparent 13px
+  );
+  border-radius: 2px;
+  opacity: .4;
+}
+.pcard-views { font-size: 10px; color: var(--muted); white-space:nowrap; }
+
+/* ── locked card (guest) ── */
+.pcard-locked .pcard-hero { filter: brightness(.5); }
+.pcard-lock-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: radial-gradient(ellipse at center, rgba(8,15,26,.6) 0%, rgba(8,15,26,.85) 100%);
+  backdrop-filter: blur(2px);
+}
+.pcard-lock-icon { font-size: 28px; opacity: .7; }
+.pcard-lock-text { font-size: 12px; color: var(--muted); }
+
 .pbio{font-size:12px;color:var(--muted);line-height:1.6;}
 .photo-upload-area{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px;background:rgba(201,168,76,.04);border:2px dashed rgba(201,168,76,.25);border-radius:14px;cursor:pointer;transition:all .3s;margin-bottom:4px;}
 .photo-upload-area:hover{border-color:var(--gold);background:rgba(201,168,76,.08);}
@@ -192,12 +360,7 @@ nav{position:fixed;top:0;width:100%;z-index:100;background:rgba(13,27,42,.97);ba
 .dash-av-wrap:hover .dash-av-edit{opacity:1;}
 .dash-av-edit{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0;transition:opacity .3s;}
 
-/* BLUR OVERLAY for guests */
-.pcard-blur .pcard-body{position:relative;}
-.pcard-blur .pcard-body::after{content:'';position:absolute;inset:0;backdrop-filter:blur(6px);background:rgba(13,27,42,.6);border-radius:0 0 16px 16px;display:flex;align-items:center;justify-content:center;}
-.blur-cta{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;}
-.blur-cta p{font-size:13px;color:var(--text);font-weight:600;}
-.blur-cta small{font-size:11px;color:var(--muted);}
+/* BLUR OVERLAY for guests — handled inline in new card */
 
 /* ══ POSTS / FEED ══ */
 .feed-section{padding:80px 0;}
@@ -1252,103 +1415,119 @@ function renderProfiles() {
     const lastSeenHtml = p.lastSeen ? `<div class="last-seen">${getLastSeenText(p.lastSeen)}</div>` : '';
 
     if (isLoggedIn) {
-      return `<div class="pcard" onclick="openProfileModal(${JSON.stringify(p).replace(/"/g,'&quot;').replace(/'/g,'&#39;')})" style="cursor:pointer;">
-        <div class="pcard-top">
-          <div>
-            <div class="pcard-top-logo">نكاح 🌙</div>
-            <div class="pcard-top-title">بطاقة العضوية</div>
+      const onlineStatus = p.lastSeen ? (() => {
+        const mins = Math.round((Date.now() - (p.lastSeen.toDate ? p.lastSeen.toDate() : new Date(p.lastSeen)).getTime()) / 60000);
+        return mins < 5 ? 'online' : mins < 60 ? 'away' : 'offline';
+      })() : 'offline';
+      const genderClass = p.gender === 'female' ? 'female' : 'male';
+      const genderIcon  = p.gender === 'female' ? '♀' : '♂';
+
+      return `<div class="pcard" onclick="openProfileModal(${JSON.stringify(p).replace(/"/g,'&quot;').replace(/'/g,'&#39;')})">
+
+        <!-- hero area -->
+        <div class="pcard-hero">
+          <div class="pcard-hero-bg"></div>
+          <div class="pcard-gender-arc ${genderClass}">${genderIcon}</div>
+          <div class="pcard-avatar-wrap">
+            <div class="pcard-avatar">${avatarHtml}</div>
+            <div class="pcard-online-dot ${onlineStatus}"></div>
           </div>
+        </div>
+
+        <!-- body -->
+        <div class="pcard-body">
+          <div class="pcard-name">${escHtml(p.name||'عضو')}</div>
+
           <div class="pcard-badges">
             <span class="badge-verified">✓ موثّق</span>
             ${socialBadge}${seriousBadge}
           </div>
-        </div>
-        <div class="pcard-body">
-          <div class="pcard-photo-col">
-            <div class="pcard-avatar">${avatarHtml}</div>
-            <div class="pcard-uid">#${uid}</div>
+
+          <div class="pcard-info-grid">
+            <div class="pcard-info-item">
+              <div class="pcard-info-label">العمر</div>
+              <div class="pcard-info-val">${p.age ? p.age+' سنة' : '—'}</div>
+            </div>
+            <div class="pcard-info-sep"></div>
+            <div class="pcard-info-item">
+              <div class="pcard-info-label">الدولة</div>
+              <div class="pcard-info-val" style="font-size:12px;">${escHtml(p.country||'—')}</div>
+            </div>
+            <div style="grid-column:1/-1;height:1px;background:rgba(201,168,76,.08);"></div>
+            <div class="pcard-info-item">
+              <div class="pcard-info-label">المدينة</div>
+              <div class="pcard-info-val" style="font-size:12px;">${escHtml(p.city||'—')}</div>
+            </div>
+            <div class="pcard-info-sep"></div>
+            <div class="pcard-info-item">
+              <div class="pcard-info-label">المهنة</div>
+              <div class="pcard-info-val" style="font-size:12px;">${escHtml(p.job||'—')}</div>
+            </div>
           </div>
-          <div class="pcard-info-col">
-            <div class="pcard-field">
-              <div class="pcard-field-label">الاسم</div>
-              <div class="pcard-field-val large">${p.name||'عضو'}</div>
-            </div>
-            ${lastSeenHtml}
-            <div class="pcard-divider"></div>
-            <div style="display:flex;gap:12px;">
-              <div class="pcard-field">
-                <div class="pcard-field-label">العمر</div>
-                <div class="pcard-field-val">${p.age?p.age+' سنة':'—'}</div>
-              </div>
-              <div class="pcard-field">
-                <div class="pcard-field-label">الجنسية</div>
-                <div class="pcard-field-val">${p.country||'—'}</div>
-              </div>
-            </div>
-            <div class="pcard-field">
-              <div class="pcard-field-label">المدينة</div>
-              <div class="pcard-field-val">${p.city||'—'}</div>
-            </div>
-            <div class="pcard-field">
-              <div class="pcard-field-label">المهنة</div>
-              <div class="pcard-field-val">${p.job||'—'}</div>
-            </div>
-            <div class="ptags" style="margin-top:4px;">${tags}</div>
-          </div>
+
+          ${tags ? `<div class="ptags">${tags}</div>` : ''}
+          <div class="pcard-uid"># ${(p.id||'000000').toString().padStart(8,'0').toUpperCase()}</div>
         </div>
+
+        <!-- footer -->
         <div class="pcard-footer" onclick="event.stopPropagation()">
-          <button class="btn-gold" style="padding:7px 14px;font-size:12px;border-radius:6px;" onclick="openChat('${p.id}','${p.name||'عضو'}','${p.photoUrl||''}','${p.gender||'male'}')">تواصل 💬</button>
-          <button class="btn-interest ${p._interested?'interested':''}" id="int-${p.id}" onclick="sendInterest('${p.id}',this)" style="padding:7px 12px;border-radius:6px;border:1px solid rgba(224,92,92,.4);background:${p._interested?'rgba(224,92,92,.15)':'transparent'};color:#E05C5C;font-size:14px;cursor:pointer;transition:all .3s;" title="أرسل اهتمام">❤️</button>
+          <button class="btn-gold" style="padding:7px 16px;font-size:12px;border-radius:50px;font-weight:700;" onclick="openChat('${p.id}','${escHtml(p.name||'عضو')}','${p.photoUrl||''}','${p.gender||'male'}')">تواصل 💬</button>
+          <button class="btn-interest ${p._interested?'interested':''}" id="int-${p.id}" onclick="sendInterest('${p.id}',this)" style="padding:7px 13px;border-radius:50px;border:1px solid rgba(224,92,92,.4);background:${p._interested?'rgba(224,92,92,.15)':'transparent'};color:#E05C5C;font-size:14px;cursor:pointer;transition:all .3s;">❤️</button>
           <div class="pcard-barcode"></div>
           <div class="pcard-views">👁 ${p.views||0}</div>
         </div>
       </div>`;
     } else {
-      return `<div class="pcard">
-        <div class="pcard-top">
-          <div>
-            <div class="pcard-top-logo">نكاح 🌙</div>
-            <div class="pcard-top-title">بطاقة العضوية</div>
+      const genderClass = p.gender === 'female' ? 'female' : 'male';
+      const genderIcon  = p.gender === 'female' ? '♀' : '♂';
+
+      return `<div class="pcard pcard-locked">
+
+        <!-- hero area blurred -->
+        <div class="pcard-hero">
+          <div class="pcard-hero-bg"></div>
+          <div class="pcard-gender-arc ${genderClass}">${genderIcon}</div>
+          <div class="pcard-avatar-wrap">
+            <div class="pcard-avatar" style="filter:blur(10px);">${avatarHtml}</div>
           </div>
+        </div>
+
+        <!-- body -->
+        <div class="pcard-body">
+          <div class="pcard-name">${escHtml(p.name ? p.name.split(' ')[0]+' ***' : 'عضو ***')}</div>
+
           <div class="pcard-badges">
             <span class="badge-verified">✓ موثّق</span>
             ${socialBadge}
           </div>
-        </div>
-        <div class="pcard-body">
-          <div class="pcard-photo-col">
-            <div class="pcard-avatar" style="filter:blur(8px);">${avatarHtml}</div>
-            <div class="pcard-uid">########</div>
-          </div>
-          <div class="pcard-info-col">
-            <div class="pcard-field">
-              <div class="pcard-field-label">الاسم</div>
-              <div class="pcard-field-val large">${p.name||'عضو'}</div>
+
+          <div class="pcard-info-grid">
+            <div class="pcard-info-item">
+              <div class="pcard-info-label">العمر</div>
+              <div class="pcard-info-val">${p.age ? p.age+' سنة' : '—'}</div>
             </div>
-            <div class="pcard-divider"></div>
-            <div style="display:flex;gap:12px;">
-              <div class="pcard-field">
-                <div class="pcard-field-label">العمر</div>
-                <div class="pcard-field-val">${p.age?p.age+' سنة':'—'}</div>
-              </div>
-              <div class="pcard-field">
-                <div class="pcard-field-label">الجنسية</div>
-                <div class="pcard-field-val">${p.country||'—'}</div>
-              </div>
+            <div class="pcard-info-sep"></div>
+            <div class="pcard-info-item">
+              <div class="pcard-info-label">الدولة</div>
+              <div class="pcard-info-val" style="font-size:12px;">${escHtml(p.country||'—')}</div>
             </div>
-            <div class="pcard-field" style="filter:blur(5px);user-select:none;">
-              <div class="pcard-field-label">المدينة</div>
-              <div class="pcard-field-val">██████</div>
+            <div style="grid-column:1/-1;height:1px;background:rgba(201,168,76,.08);"></div>
+            <div class="pcard-info-item" style="filter:blur(5px);user-select:none;">
+              <div class="pcard-info-label">المدينة</div>
+              <div class="pcard-info-val">██████</div>
             </div>
-            <div class="pcard-field" style="filter:blur(5px);user-select:none;">
-              <div class="pcard-field-label">المهنة</div>
-              <div class="pcard-field-val">██████</div>
-            </div>
-            <div style="margin-top:8px;text-align:center;">
-              <button class="btn-gold btn-sm" onclick="om('register')" style="font-size:11px;">🔒 سجّل لرؤية التفاصيل</button>
+            <div class="pcard-info-sep"></div>
+            <div class="pcard-info-item" style="filter:blur(5px);user-select:none;">
+              <div class="pcard-info-label">المهنة</div>
+              <div class="pcard-info-val">██████</div>
             </div>
           </div>
+
+          <button class="btn-gold" style="width:100%;padding:10px;border-radius:50px;font-size:13px;font-weight:700;" onclick="om('register')">🔒 سجّل لرؤية الملف كاملاً</button>
+          <div class="pcard-uid"># ████████</div>
         </div>
+
+        <!-- footer -->
         <div class="pcard-footer">
           <div class="pcard-barcode"></div>
           <div class="pcard-views" style="font-size:10px;color:var(--muted);">الأعضاء فقط</div>
