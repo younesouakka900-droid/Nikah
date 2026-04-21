@@ -1237,7 +1237,7 @@ footer{border-top:1px solid rgba(201,168,76,.12);padding:44px 0 20px;text-align:
 <!-- ══════ FIREBASE ══════ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, addDoc, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const cfg = {
@@ -1860,11 +1860,29 @@ window.doRegister = async function(name, email, pass) {
   if (pass.length<6) { toast('كلمة المرور 6 أحرف على الأقل','err'); return; }
   try {
     const cred = await createUserWithEmailAndPassword(auth,email,pass);
+    // إرسال بريد التأكيد
+    await sendEmailVerification(cred.user);
+    // حفظ بيانات المستخدم
     await setDoc(doc(db,'users',cred.user.uid),{name,email,status:'pending',createdAt:serverTimestamp(),views:0,interests:0,sent:0});
+    // تسجيل خروج فوري حتى يؤكد بريده
+    await fbOut(auth);
     cm();
-    toast('مرحباً بك في نكاح! 🎉 أكمل ملفك.','ok');
+    // عرض modal التأكيد
+    document.getElementById('modal-body').innerHTML = `
+      <div class="modal-icon">📧</div>
+      <h2 class="modal-title">تحقق من بريدك</h2>
+      <p class="modal-sub" style="text-align:center;line-height:1.9;">
+        أرسلنا رسالة تأكيد إلى<br>
+        <strong style="color:var(--gold)">${escHtml(email)}</strong><br><br>
+        افتح بريدك واضغط على رابط التأكيد، ثم عد وسجّل دخولك.
+      </p>
+      <div style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:14px;margin:16px 0;font-size:13px;color:var(--muted);text-align:center;">
+        📌 تحقق من مجلد <strong>Spam</strong> إذا لم تجد الرسالة
+      </div>
+      <button class="btn-gold" style="width:100%;padding:13px;font-size:15px;font-family:Tajawal,sans-serif;border-radius:10px;" onclick="om('login')">تسجيل الدخول 🌙</button>`;
+    document.getElementById('modal').classList.add('open');
   } catch(e){
-    const m={'auth/email-already-in-use':'هذا البريد مسجّل','auth/invalid-email':'بريد غير صحيح','auth/weak-password':'كلمة المرور ضعيفة'};
+    const m={'auth/email-already-in-use':'هذا البريد مسجّل بالفعل','auth/invalid-email':'بريد إلكتروني غير صحيح','auth/weak-password':'كلمة المرور ضعيفة جداً'};
     toast(m[e.code]||e.message,'err');
   }
 };
@@ -1873,12 +1891,65 @@ window.doRegister = async function(name, email, pass) {
 window.doLogin = async function(email, pass) {
   if (!email||!pass) { toast('يرجى إدخال البريد وكلمة المرور','err'); return; }
   try {
-    await signInWithEmailAndPassword(auth,email,pass);
+    const cred = await signInWithEmailAndPassword(auth,email,pass);
+    // تحقق من تأكيد البريد
+    if (!cred.user.emailVerified) {
+      await fbOut(auth);
+      document.getElementById('modal-body').innerHTML = `
+        <div class="modal-icon">📧</div>
+        <h2 class="modal-title">البريد غير مؤكد</h2>
+        <p class="modal-sub" style="text-align:center;line-height:1.9;">
+          يرجى تأكيد بريدك الإلكتروني أولاً.<br>
+          تحقق من بريدك <strong style="color:var(--gold)">${escHtml(email)}</strong>
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+          <button class="btn-gold" style="padding:13px;font-size:14px;font-family:Tajawal,sans-serif;border-radius:10px;" onclick="resendVerification('${escHtml(email)}','${escHtml(pass)}')">📨 إعادة إرسال رسالة التأكيد</button>
+          <button class="btn-ghost" style="padding:10px;font-size:13px;font-family:Tajawal,sans-serif;border-radius:10px;" onclick="om('login')">رجوع</button>
+        </div>`;
+      document.getElementById('modal').classList.add('open');
+      return;
+    }
     cm();
     toast('مرحباً بعودتك 🌙','ok');
   } catch(e){
-    const m={'auth/user-not-found':'لا يوجد حساب','auth/wrong-password':'كلمة مرور خاطئة','auth/invalid-credential':'بيانات غير صحيحة'};
+    const m={'auth/user-not-found':'لا يوجد حساب بهذا البريد','auth/wrong-password':'كلمة مرور خاطئة','auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة'};
     toast(m[e.code]||'خطأ في الدخول','err');
+  }
+};
+
+// ── إعادة إرسال التأكيد ──
+window.resendVerification = async function(email, pass) {
+  try {
+    const cred = await signInWithEmailAndPassword(auth,email,pass);
+    await sendEmailVerification(cred.user);
+    await fbOut(auth);
+    toast('تم إرسال رسالة التأكيد مجدداً 📧','ok');
+  } catch(e) {
+    toast('حدث خطأ، حاول مجدداً','err');
+  }
+};
+
+// ── نسيان كلمة المرور ──
+window.forgotPassword = async function(email) {
+  if (!email) { toast('أدخل بريدك الإلكتروني أولاً','err'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    document.getElementById('modal-body').innerHTML = `
+      <div class="modal-icon">🔑</div>
+      <h2 class="modal-title">تم إرسال رابط الاسترداد</h2>
+      <p class="modal-sub" style="text-align:center;line-height:1.9;">
+        أرسلنا رابط إعادة تعيين كلمة المرور إلى<br>
+        <strong style="color:var(--gold)">${escHtml(email)}</strong><br><br>
+        افتح بريدك واتبع التعليمات.
+      </p>
+      <div style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:14px;margin:16px 0;font-size:13px;color:var(--muted);text-align:center;">
+        📌 تحقق من مجلد <strong>Spam</strong> إذا لم تجد الرسالة
+      </div>
+      <button class="btn-gold" style="width:100%;padding:13px;font-family:Tajawal,sans-serif;border-radius:10px;" onclick="om('login')">رجوع لتسجيل الدخول</button>`;
+    toast('تم إرسال رابط الاسترداد 🔑','ok');
+  } catch(e) {
+    const m = {'auth/user-not-found':'لا يوجد حساب بهذا البريد','auth/invalid-email':'بريد غير صحيح'};
+    toast(m[e.code]||'حدث خطأ، حاول مجدداً','err');
   }
 };
 
@@ -2328,6 +2399,7 @@ const modals={
       <input class="finput" type="email" placeholder="البريد الإلكتروني" id="ml-email">
       <input class="finput" type="password" placeholder="كلمة المرور" id="ml-pass">
       <button class="btn-gold" style="padding:13px;font-size:15px;font-family:Tajawal,sans-serif;border-radius:10px;" onclick="doLogin(document.getElementById('ml-email').value,document.getElementById('ml-pass').value)">دخول 🌙</button>
+      <p style="font-size:12px;color:var(--muted);text-align:center;"><a href="#" style="color:var(--gold)" onclick="forgotPassword(document.getElementById('ml-email').value)">نسيت كلمة المرور؟</a></p>
       <p style="font-size:12px;color:var(--muted);text-align:center;">ليس لديك حساب؟ <a href="#" style="color:var(--gold)" onclick="om('register')">سجّل الآن</a></p>
     </div>`,
   register:()=>`
