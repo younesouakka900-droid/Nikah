@@ -1237,7 +1237,7 @@ footer{border-top:1px solid rgba(201,168,76,.12);padding:44px 0 20px;text-align:
 <!-- ══════ FIREBASE ══════ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, addDoc, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const cfg = {
@@ -1934,12 +1934,20 @@ window.doGoogleLogin = async function() {
   try {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    const cred = await signInWithPopup(auth, provider);
-    const user = cred.user;
-    // تحقق إذا كان المستخدم موجوداً في Firestore
+    await signInWithRedirect(auth, provider);
+  } catch(e) {
+    toast('حدث خطأ في تسجيل الدخول بـ Google','err');
+  }
+};
+
+// ── معالجة نتيجة Google Redirect ──
+async function handleGoogleRedirect() {
+  try {
+    const result = await getRedirectResult(auth);
+    if (!result) return;
+    const user = result.user;
     const snap = await getDoc(doc(db,'users',user.uid));
     if (!snap.exists()) {
-      // مستخدم جديد — أنشئ ملفه
       await setDoc(doc(db,'users',user.uid), {
         name: user.displayName || 'عضو',
         email: user.email,
@@ -1948,18 +1956,17 @@ window.doGoogleLogin = async function() {
         createdAt: serverTimestamp(),
         views: 0, interests: 0, sent: 0
       });
-      cm();
       toast('مرحباً بك في نكاح! 🎉 أكمل ملفك.','ok');
     } else {
-      cm();
       toast('مرحباً بعودتك 🌙','ok');
     }
   } catch(e) {
-    if (e.code !== 'auth/popup-closed-by-user') {
-      toast('حدث خطأ في تسجيل الدخول بـ Google','err');
+    if (e.code !== 'auth/cancelled-popup-request') {
+      console.error('Google redirect error:', e.message);
     }
   }
-};
+}
+handleGoogleRedirect();
 window.forgotPassword = async function(email) {
   if (!email) { toast('أدخل بريدك الإلكتروني أولاً','err'); return; }
   try {
