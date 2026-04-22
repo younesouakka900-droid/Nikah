@@ -1260,42 +1260,69 @@ window._fns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, fbOu
   where, orderBy, serverTimestamp, addDoc };
 
 // ── Auth state ──
-onAuthStateChanged(auth, async user => {
-  window._user = user;
-  if (user) {
-    const isAdmin = user.email === ADMIN;
-    updateNav(user, isAdmin);
-    // update lastSeen
-    if (!isAdmin) {
-      updateDoc(doc(db,'users',user.uid), {lastSeen: serverTimestamp()}).catch(()=>{});
-    }
-    if (isAdmin) {
-      sp('admin');
-      await loadAdminData();
-    } else {
+// ── معالجة Google Redirect أولاً ثم Auth State ──
+async function initAuth() {
+  // تحقق من نتيجة Google Redirect
+  try {
+    const result = await getRedirectResult(auth);
+    if (result?.user) {
+      const user = result.user;
       const snap = await getDoc(doc(db,'users',user.uid));
-      window._profile = snap.exists() ? snap.data() : null;
-      sp('dashboard');
-      loadDash(window._profile, user);
-      // check for new interests and notify
-      try {
-        const prevCount = parseInt(localStorage.getItem('nikah_prev_interests')||'0');
-        const newCount = snap.exists() ? (snap.data().interests||0) : 0;
-        if (newCount > prevCount && prevCount > 0) {
-          addNotification('❤️', `لديك ${newCount - prevCount} اهتمام جديد على ملفك!`);
-        }
-        localStorage.setItem('nikah_prev_interests', newCount);
-      } catch(e){}
+      if (!snap.exists()) {
+        await setDoc(doc(db,'users',user.uid), {
+          name: user.displayName || 'عضو',
+          email: user.email,
+          photoUrl: user.photoURL || '',
+          status: 'pending',
+          createdAt: serverTimestamp(),
+          views: 0, interests: 0, sent: 0
+        });
+        toast('مرحباً بك في نكاح! 🎉 أكمل ملفك.','ok');
+      } else {
+        toast('مرحباً بعودتك 🌙','ok');
+      }
     }
-    loadProfiles();
-    loadFeed();
-  } else {
-    window._user = null; window._profile = null;
-    resetNav();
-    loadProfiles();
-    loadFeed();
+  } catch(e) {
+    console.error('Google redirect error:', e.message);
   }
-});
+
+  // بعدها تابع الحالة الاعتيادية
+  onAuthStateChanged(auth, async user => {
+    window._user = user;
+    if (user) {
+      const isAdmin = user.email === ADMIN;
+      updateNav(user, isAdmin);
+      if (!isAdmin) {
+        updateDoc(doc(db,'users',user.uid), {lastSeen: serverTimestamp()}).catch(()=>{});
+      }
+      if (isAdmin) {
+        sp('admin');
+        await loadAdminData();
+      } else {
+        const snap = await getDoc(doc(db,'users',user.uid));
+        window._profile = snap.exists() ? snap.data() : null;
+        sp('dashboard');
+        loadDash(window._profile, user);
+        try {
+          const prevCount = parseInt(localStorage.getItem('nikah_prev_interests')||'0');
+          const newCount = snap.exists() ? (snap.data().interests||0) : 0;
+          if (newCount > prevCount && prevCount > 0) {
+            addNotification('❤️', `لديك ${newCount - prevCount} اهتمام جديد على ملفك!`);
+          }
+          localStorage.setItem('nikah_prev_interests', newCount);
+        } catch(e){}
+      }
+      loadProfiles();
+      loadFeed();
+    } else {
+      window._user = null; window._profile = null;
+      resetNav();
+      loadProfiles();
+      loadFeed();
+    }
+  });
+}
+initAuth();
 
 // ── nav ──
 function updateNav(user, isAdmin) {
@@ -1940,33 +1967,6 @@ window.doGoogleLogin = async function() {
   }
 };
 
-// ── معالجة نتيجة Google Redirect ──
-async function handleGoogleRedirect() {
-  try {
-    const result = await getRedirectResult(auth);
-    if (!result) return;
-    const user = result.user;
-    const snap = await getDoc(doc(db,'users',user.uid));
-    if (!snap.exists()) {
-      await setDoc(doc(db,'users',user.uid), {
-        name: user.displayName || 'عضو',
-        email: user.email,
-        photoUrl: user.photoURL || '',
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        views: 0, interests: 0, sent: 0
-      });
-      toast('مرحباً بك في نكاح! 🎉 أكمل ملفك.','ok');
-    } else {
-      toast('مرحباً بعودتك 🌙','ok');
-    }
-  } catch(e) {
-    if (e.code !== 'auth/cancelled-popup-request') {
-      console.error('Google redirect error:', e.message);
-    }
-  }
-}
-handleGoogleRedirect();
 window.forgotPassword = async function(email) {
   if (!email) { toast('أدخل بريدك الإلكتروني أولاً','err'); return; }
   try {
