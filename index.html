@@ -1304,7 +1304,7 @@ footer{border-top:1px solid rgba(201,168,76,.12);padding:44px 0 20px;text-align:
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, addDoc, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, addDoc, increment, onSnapshot, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const cfg = {
   apiKey:"AIzaSyDwplTLuDe77rKur8L2CJLNuy4cXFbXbe0",
@@ -1328,12 +1328,21 @@ window._fns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, fbOu
 // ── Auth state ──
 onAuthStateChanged(auth, async user => {
   window._user = user;
+  // ✅ تعريض db و functions للـ UI script
+  window._db = db;
+  window._fns = {
+    collection, query, where, orderBy, limit,
+    getDocs, getDoc, setDoc, doc, updateDoc, deleteDoc, addDoc,
+    onSnapshot, serverTimestamp, increment
+  };
   if (user) {
     const isAdmin = user.email === ADMIN;
     updateNav(user, isAdmin);
     // update lastSeen
     if (!isAdmin) {
       updateDoc(doc(db,'users',user.uid), {lastSeen: serverTimestamp()}).catch(()=>{});
+      // ✅ تشغيل الـ listener الحي للإشعارات
+      if (window.startNotifListener) window.startNotifListener(user.uid);
     }
     if (isAdmin) {
       sp('admin');
@@ -1343,20 +1352,13 @@ onAuthStateChanged(auth, async user => {
       window._profile = snap.exists() ? snap.data() : null;
       sp('dashboard');
       loadDash(window._profile, user);
-      // check for new interests and notify
-      try {
-        const prevCount = parseInt(localStorage.getItem('nikah_prev_interests')||'0');
-        const newCount = snap.exists() ? (snap.data().interests||0) : 0;
-        if (newCount > prevCount && prevCount > 0) {
-          addNotification('❤️', `لديك ${newCount - prevCount} اهتمام جديد على ملفك!`);
-        }
-        localStorage.setItem('nikah_prev_interests', newCount);
-      } catch(e){}
     }
     loadProfiles();
     loadFeed();
   } else {
     window._user = null; window._profile = null;
+    // إيقاف الـ listener عند تسجيل الخروج
+    if (window._notifUnsub) { window._notifUnsub(); window._notifUnsub = null; }
     resetNav();
     loadProfiles();
     loadFeed();
@@ -1479,6 +1481,11 @@ window.sendInterest = async function(targetUid, btn) {
       btn.style.borderColor = 'rgba(224,92,92,.7)';
       toast('❤️ تم إرسال الاهتمام!','ok');
       addNotification('❤️', 'أرسلت اهتماماً لأحد الأعضاء');
+      // ✅ إشعار حقيقي للطرف الآخر
+      if (window.pushNotification) {
+        const myName = window._profile?.name || window._user.email.split('@')[0];
+        window.pushNotification(targetUid, '❤️', `أبدى ${myName} اهتمامه بملفك`);
+      }
     }
   } catch(e) { toast('حدث خطأ، حاول مجدداً','err'); }
 };
@@ -1796,6 +1803,12 @@ window.adminAction = async function(uid, status) {
   try {
     await updateDoc(doc(db,'users',uid), {status, reviewedAt: serverTimestamp()});
     toast(status==='approved'?'✅ تم الاعتماد':status==='rejected'?'❌ تم الرفض':'↩ تم الإعادة', status==='approved'?'ok':'err');
+    // ✅ إشعار حقيقي للعضو
+    if (window.pushNotification) {
+      if (status === 'approved') window.pushNotification(uid, '✅', 'تهانينا! تم اعتماد ملفك الشخصي وأصبح مرئياً للأعضاء');
+      else if (status === 'rejected') window.pushNotification(uid, '❌', 'عذراً، تم رفض ملفك الشخصي. يرجى مراجعة بياناتك وإعادة التقديم');
+      else window.pushNotification(uid, '🔄', 'تم إعادة ملفك لمرحلة المراجعة');
+    }
     await loadAdminData();
     loadProfiles();
   } catch(e){ toast('خطأ: '+e.message,'err'); }
@@ -2161,6 +2174,20 @@ window.doSignOut = async function() {
 
 window._loadAdminData = loadAdminData;
 
+// ══ PUSH NOTIFICATION TO FIRESTORE ══
+window.pushNotification = async function(toUid, icon, text) {
+  if (!toUid) return;
+  try {
+    await addDoc(collection(db,'notifications'), {
+      to: toUid,
+      icon,
+      text,
+      read: false,
+      createdAt: serverTimestamp()
+    });
+  } catch(e) { console.error('pushNotification error:', e.message); }
+};
+
 // ══════════════════════════════════════════
 // ── CHAT SYSTEM ──
 // ══════════════════════════════════════════
@@ -2212,10 +2239,17 @@ window.openChat = async function(targetUid, targetName, targetPhoto, targetGende
 
   // Create room doc if not exists
   const roomRef = doc(db,'chats',roomId);
+  const roomSnap = await getDoc(roomRef);
+  const isNewChat = !roomSnap.exists();
   await setDoc(roomRef, {
     members: [window._user.uid, targetUid],
     updatedAt: serverTimestamp()
   }, {merge:true});
+  // ✅ إشعار للطرف الآخر عند بدء محادثة جديدة فقط
+  if (isNewChat && window.pushNotification) {
+    const myName = window._profile?.name || window._user.email.split('@')[0];
+    window.pushNotification(targetUid, '💬', `بدأ ${myName} محادثة معك`);
+  }
 
   // Live messages listener
   const msgsRef = collection(db,'chats',roomId,'messages');
@@ -2352,51 +2386,104 @@ window.toggleMenu=toggleMenu; window.closeMenu=closeMenu;
 // ══ NOTIFICATIONS SYSTEM ══
 window._notifs = JSON.parse(localStorage.getItem('nikah_notifs')||'[]');
 
-function saveNotifs() { localStorage.setItem('nikah_notifs', JSON.stringify(window._notifs)); }
+// ══ NOTIFICATIONS — FIRESTORE REAL-TIME ══
+window._notifUnsub = null;
 
-function addNotification(icon, text) {
-  window._notifs.unshift({ icon, text, time: Date.now(), read: false });
-  if (window._notifs.length > 30) window._notifs.pop();
-  saveNotifs();
-  renderNotifBadge();
-  renderNotifList();
-}
-
-function renderNotifBadge() {
-  const unread = window._notifs.filter(n => !n.read).length;
+function renderNotifBadge(count) {
   const badge = document.getElementById('notif-count');
-  if (badge) { badge.textContent = unread; badge.style.display = unread ? 'flex' : 'none'; }
+  if (badge) { badge.textContent = count; badge.style.display = count ? 'flex' : 'none'; }
 }
 
-function renderNotifList() {
+function renderNotifList(notifs) {
   const list = document.getElementById('notif-list');
   if (!list) return;
-  if (!window._notifs.length) { list.innerHTML = '<div class="notif-empty">لا توجد إشعارات حالياً</div>'; return; }
-  list.innerHTML = window._notifs.map((n,i) => {
-    const mins = Math.round((Date.now()-n.time)/60000);
-    const timeStr = mins < 1 ? 'الآن' : mins < 60 ? `منذ ${mins} دقيقة` : `منذ ${Math.round(mins/60)} ساعة`;
-    return `<div class="notif-item${n.read?'':' unread'}" onclick="markNotifRead(${i})">
-      <div class="notif-icon">${n.icon}</div>
-      <div><div class="notif-text">${n.text}</div><div class="notif-time">${timeStr}</div></div>
+  if (!notifs || !notifs.length) { list.innerHTML = '<div class="notif-empty">لا توجد إشعارات حالياً</div>'; return; }
+  list.innerHTML = notifs.map(n => {
+    const ts = n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt||Date.now());
+    const mins = Math.round((Date.now() - ts.getTime()) / 60000);
+    const timeStr = mins < 1 ? 'الآن' : mins < 60 ? `منذ ${mins} دقيقة` : mins < 1440 ? `منذ ${Math.round(mins/60)} ساعة` : `منذ ${Math.round(mins/1440)} يوم`;
+    return `<div class="notif-item${n.read ? '' : ' unread'}" onclick="markNotifRead('${n.id}')">
+      <div class="notif-icon">${n.icon||'🔔'}</div>
+      <div><div class="notif-text">${n.text||''}</div><div class="notif-time">${timeStr}</div></div>
     </div>`;
   }).join('');
 }
 
-window.markNotifRead = function(i) { if(window._notifs[i]) { window._notifs[i].read=true; saveNotifs(); renderNotifBadge(); renderNotifList(); }};
-window.clearNotifications = function() { window._notifs=[]; saveNotifs(); renderNotifBadge(); renderNotifList(); };
+// تشغيل الاستماع الحي للإشعارات
+function startNotifListener(uid) {
+  if (window._notifUnsub) { window._notifUnsub(); window._notifUnsub = null; }
+  if (!uid || !window._db) return;
+  const {collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc, getDocs, deleteDoc} = window._fns;
+  const q = query(
+    collection(window._db, 'notifications'),
+    where('to', '==', uid),
+    orderBy('createdAt', 'desc'),
+    limit(30)
+  );
+  window._notifUnsub = onSnapshot(q, snap => {
+    const notifs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    window._notifs = notifs;
+    const unread = notifs.filter(n => !n.read).length;
+    renderNotifBadge(unread);
+    // تحديث القائمة إذا كانت مفتوحة
+    const panel = document.getElementById('notif-panel');
+    if (panel && panel.classList.contains('open')) renderNotifList(notifs);
+  }, err => console.error('notif listener:', err));
+}
+window.startNotifListener = startNotifListener;
+
+// إضافة إشعار محلي (للإشعارات الخاصة بالمستخدم نفسه فقط مثل حفظ مفضلة)
+function addNotification(icon, text) {
+  if (window._user && window.pushNotification) {
+    window.pushNotification(window._user.uid, icon, text);
+  }
+}
+
+window.markNotifRead = async function(id) {
+  if (!window._db || !id) return;
+  try {
+    const {doc, updateDoc} = window._fns;
+    await updateDoc(doc(window._db,'notifications',id), {read: true});
+  } catch(e){}
+};
+
+window.clearNotifications = async function() {
+  if (!window._user || !window._db) return;
+  try {
+    const {collection, query, where, getDocs, deleteDoc, doc} = window._fns;
+    const snap = await getDocs(query(collection(window._db,'notifications'), where('to','==',window._user.uid)));
+    await Promise.all(snap.docs.map(d => deleteDoc(doc(window._db,'notifications',d.id))));
+    renderNotifList([]);
+    renderNotifBadge(0);
+    toast('تم مسح جميع الإشعارات','ok');
+  } catch(e){ toast('حدث خطأ','err'); }
+};
+
 window.toggleNotifPanel = function() {
   const panel = document.getElementById('notif-panel');
   panel.classList.toggle('open');
-  if (panel.classList.contains('open')) { window._notifs.forEach(n=>n.read=true); saveNotifs(); renderNotifBadge(); renderNotifList(); }
+  if (panel.classList.contains('open')) {
+    renderNotifList(window._notifs || []);
+    // تمييز الكل كمقروء عند الفتح
+    if (window._user && window._db && window._notifs?.length) {
+      const {collection, query, where, getDocs, doc, updateDoc} = window._fns;
+      getDocs(query(collection(window._db,'notifications'),
+        where('to','==',window._user.uid),
+        where('read','==',false)
+      )).then(snap => {
+        snap.docs.forEach(d => updateDoc(doc(window._db,'notifications',d.id),{read:true}).catch(()=>{}));
+      }).catch(()=>{});
+    }
+  }
 };
+
 document.addEventListener('click', e => {
   const panel = document.getElementById('notif-panel');
   if (panel && !panel.contains(e.target) && e.target.id !== 'notif-bell' && !e.target.closest('#notif-bell')) {
     panel.classList.remove('open');
   }
 });
-renderNotifBadge();
-renderNotifList();
+renderNotifBadge(0);
 
 // ══ EDIT POST (ADMIN) ══
 window.startEditPost = function(p) {
