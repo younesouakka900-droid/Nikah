@@ -1300,9 +1300,9 @@ footer{border-top:1px solid rgba(201,168,76,.12);padding:44px 0 20px;text-align:
 <!-- ══════ TOAST ══════ -->
 <div class="toast" id="toast"></div>
 
-<!-- ══════ FIREBASE ══════ -->
+<!-- ══════ GLOBAL HELPERS ══════ -->
 <script>
-// ── Global toast — متاح لجميع الـ scripts ──
+// ── Global toast — متاح لجميع الـ scripts قبل تحميل module ──
 function toast(msg, type) {
   let t = document.getElementById('_globalToast');
   if (!t) {
@@ -1320,6 +1320,9 @@ function toast(msg, type) {
 }
 window.toast = toast;
 </script>
+
+<!-- ══════ FIREBASE ══════ -->
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, addDoc, increment, onSnapshot, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -1891,7 +1894,7 @@ window.deletePost = async function(id) {
 };
 
 // ── DASH ──
-function loadDash(profile, user) {
+async function loadDash(profile, user) {
   document.getElementById('d-email').textContent = user.email;
   document.getElementById('d-joined').textContent = 'انضم في: '+new Date(user.metadata.creationTime).toLocaleDateString('ar-EG');
   if (!profile) {
